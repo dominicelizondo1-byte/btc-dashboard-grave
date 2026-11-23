@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BTC 15-Min Dashboard</title>
+<style>
+:root{--bg:#0b0608;--card:#140b0e;--bd:#3a1018;--tx:#f4eef0;--mu:#9a8a90;--up:#2fe38a;--dn:#ff3b5c}
+*{box-sizing:border-box}
+body{margin:0 auto;background:radial-gradient(circle at top,#2a0a12,var(--bg) 60%);color:var(--tx);font-family:system-ui,sans-serif;padding:10px;max-width:760px}
+h1{font-size:17px;margin:4px 0 10px}h2{font-size:13px;margin:0 0 8px;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.g{display:grid;gap:8px;grid-template-columns:1fr 1fr;margin-bottom:8px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;margin-bottom:8px}
+.g .card{margin:0}.full{grid-column:1/-1}
+.lbl{font-size:10px;letter-spacing:.08em;color:var(--mu);text-transform:uppercase}
+.big{font-size:22px;font-weight:800;margin-top:3px}
+.huge{font-size:56px;font-weight:900;text-align:center;margin:6px 0}
+.sub{font-size:11px;color:var(--mu);margin-top:2px}
+.bar{height:6px;background:#2a1519;border-radius:4px;overflow:hidden;margin:5px 0}.bar i{display:block;height:100%;width:50%}
+.row{display:flex;justify-content:space-between;font-size:13px;gap:8px}
+.up{color:var(--up)}.dn{color:var(--dn)}
+input{background:#0b0608;color:var(--tx);border:1px solid var(--bd);border-radius:8px;padding:6px;width:100%;font-size:14px}
+.rules{display:grid;grid-template-columns:1fr 1fr;gap:8px}.rules label{font-size:11px;color:var(--mu)}
+button{background:#3a1018;color:var(--tx);border:1px solid var(--dn);border-radius:8px;padding:8px 12px;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:4px 2px;text-align:left;border-bottom:1px solid #2a1519}
+.chartbox{height:360px;padding:0;overflow:hidden}
+</style>
+</head>
+<body>
+<h1>BTC 15-Minute Dashboard</h1>
+
+<div class="g">
+  <div class="card"><div class="lbl">BTC (avg of exchanges)</div><div class="big" id="price">--</div><div class="sub" id="gap">--</div><div class="sub" id="srcs">--</div></div>
+  <div class="card"><div class="lbl">Window ends in</div><div class="big" id="cd">--:--</div><div class="sub" id="tgt">--</div></div>
+</div>
+
+<div class="card">
+  <div class="lbl">Bot call</div>
+  <div class="huge" id="dir">--</div>
+  <div class="row"><span>Confidence</span><b id="conf">--</b></div><div class="bar"><i id="confBar"></i></div>
+  <div class="row"><span>Flip risk</span><b id="flip">--</b></div><div class="bar"><i id="flipBar" style="background:#ff9f3b"></i></div>
+</div>
+
+<div class="card">
+  <h2>Kalshi market</h2>
+  <div class="row"><span>UP (yes) ask</span><b id="yesA">--</b></div>
+  <div class="row"><span>DOWN (no) ask</span><b id="noA">--</b></div>
+  <div class="row"><span>Bot edge vs Kalshi</span><b id="edge">--</b></div>
+  <div class="sub" id="kst">Connecting...</div>
+</div>
+
+<div class="card chartbox">
+  <div class="tradingview-widget-container" style="height:100%;width:100%">
+    <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
+    <script src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+    {"autosize":true,"symbol":"COINBASE:BTCUSD","interval":"1","theme":"dark","style":"1","timezone":"America/New_York","backgroundColor":"#140b0e","hide_side_toolbar":true,"hide_volume":true,"allow_symbol_change":false,"withdateranges":false,"support_host":"https://www.tradingview.com"}
+    </script>
+  </div>
+</div>
+
+<div class="g">
+  <div class="card"><div class="lbl">RSI (14)</div><div class="big" id="rsi">--</div></div>
+  <div class="card"><div class="lbl">Volatility (1m $)</div><div class="big" id="vol">--</div></div>
+  <div class="card"><div class="lbl">Trend score</div><div class="big" id="trend">--</div></div>
+  <div class="card"><div class="lbl">Model P(up)</div><div class="big" id="pup">--</div></div>
+</div>
+
+<div class="card">
+  <h2>Paper trading (fake money)</h2>
+  <div class="g" style="margin-bottom:6px">
+    <div class="card"><div class="lbl">Win rate</div><div class="big" id="wr">--</div><div class="sub" id="wl">0 trades</div></div>
+    <div class="card"><div class="lbl">Profit / loss</div><div class="big" id="pnl">$0.00</div><div class="sub" id="be">--</div></div>
+  </div>
+  <div class="sub" id="open">No open trade</div>
+</div>
+
+<div class="card">
+  <h2>Bot rules</h2>
+  <div class="rules">
+    <div><label>Min confidence %</label><input id="r_conf" type="number" value="65"></div>
+    <div><label>Min edge vs Kalshi (pts)</label><input id="r_edge" type="number" value="3"></div>
+    <div><label>Max entry price (¢)</label><input id="r_max" type="number" value="80"></div>
+    <div><label>Stake per trade ($)</label><input id="r_stake" type="number" value="10"></div>
+    <div><label>Enter from (sec left)</label><input id="r_from" type="number" value="420"></div>
+    <div><label>Enter until (sec left)</label><input id="r_to" type="number" value="90"></div>
+  </div>
+  <div style="margin-top:8px"><label class="sub">Manual target override (optional)</label><input id="manual" type="number" placeholder="Leave blank for auto"></div>
+</div>
+
+<div class="card">
+  <h2>Trade log</h2>
+  <table><thead><tr><th>Time</th><th>Call</th><th>Entry</th><th>Result</th><th>P/L</th></tr></thead><tbody id="log"></tbody></table>
+  <div style="margin-top:8px"><button id="reset">Reset paper trades</button></div>
+</div>
+<p class="sub">Informational only. Not financial advice. Paper results ignore Kalshi fees and slippage. Keep this page open so trades can settle.</p>
+
+<script>
+const $=id=>document.getElementById(id);
+const fmt=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const src={},samples=[],targets={};let kal=null,candles=[],trades=[];
+try{trades=JSON.parse(localStorage.getItem('trades')||'[]')}catch(e){}
+try{const r=JSON.parse(localStorage.getItem('rules')||'{}');for(const k in r)if($(k))$(k).value=r[k]}catch(e){}
+const save=()=>{try{localStorage.setItem('trades',JSON.stringify(trades))}catch(e){}};
+document.querySelectorAll('.rules input').forEach(i=>i.oninput=()=>{try{const r={};document.querySelectorAll('.rules input').forEach(x=>r[x.id]=x.value);localStorage.setItem('rules',JSON.stringify(r))}catch(e){}});
+$('reset').onclick=()=>{if(confirm('Delete all paper trades?')){trades=[];save();}};
+const rule=id=>parseFloat($(id).value);
+
+const cdf=z=>{const t=1/(1+.2316419*Math.abs(z)),d=.3989423*Math.exp(-z*z/2);const p=d*t*(.3193815+t*(-.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-p:p};
+const ema=(a,n)=>{const k=2/(n+1);let e=a[0];for(const v of a)e=v*k+e*(1-k);return e};
+const rsi=(a,n=14)=>{if(a.length<n+1)return null;let g=0,l=0;for(let i=a.length-n;i<a.length;i++){const d=a[i]-a[i-1];d>0?g+=d:l-=d}return l===0?100:100-100/(1+g/l)};
+
+/* ---- live prices from 3 exchanges (BRTI is a multi-exchange index) ---- */
+const setP=(k,p)=>{src[k]={p:+p,t:Date.now()}};
+function connect(url,onopen,onmsg){const s=new WebSocket(url);s.onopen=()=>onopen(s);s.onmessage=e=>{try{onmsg(JSON.parse(e.data))}catch(x){}};s.onclose=()=>setTimeout(()=>connect(url,onopen,onmsg),2000)}
+connect('wss://ws-feed.exchange.coinbase.com',s=>s.send(JSON.stringify({type:'subscribe',product_ids:['BTC-USD'],channels:['ticker']})),m=>{if(m.type==='ticker'&&m.price)setP('Coinbase',m.price)});
+connect('wss://ws.kraken.com/v2',s=>s.send(JSON.stringify({method:'subscribe',params:{channel:'ticker',symbol:['BTC/USD']}})),m=>{if(m.channel==='ticker'&&m.data&&m.data[0])setP('Kraken',m.data[0].last)});
+connect('wss://ws.bitstamp.net',s=>s.send(JSON.stringify({event:'bts:subscribe',data:{channel:'live_trades_btcusd'}})),m=>{if(m.event==='trade'&&m.data)setP('Bitstamp',m.data.price)});
+function agg(){const a=Object.values(src).filter(x=>Date.now()-x.t<15000).map(x=>x.p);return a.length?{p:a.reduce((x,y)=>x+y)/a.length,n:a.length}:null}
+
+/* ---- Kalshi public market data ---- */
+const kc=(m,k)=>m[k+'_dollars']!=null?+m[k+'_dollars']:(m[k]!=null?m[k]/100:null);
+async function loadKalshi(){
+  try{
+    const r=await fetch('https://api.elections.kalshi.com/trade-api/v2/markets?series_ticker=KXBTC15M&status=open&limit=10');
+    const d=await r.json(),now=Date.now()/1000;
+    const ms=(d.markets||[]).map(m=>({m,c:Date.parse(m.close_time)/1000})).filter(x=>x.c>now).sort((a,b)=>a.c-b.c);
+    if(!ms.length)throw 0;
+    const m=ms[0].m;
+    kal={close:ms[0].c,yesAsk:kc(m,'yes_ask'),noAsk:kc(m,'no_ask'),yesBid:kc(m,'yes_bid'),strike:m.floor_strike!=null?+m.floor_strike:null,ok:Date.now()};
+    $('kst').textContent='Kalshi data live'+(kal.strike?'':' (no strike in feed; using 60s average)');
+  }catch(e){kal=null;$('kst').textContent='Kalshi data blocked by browser. Using exchange prices and model price instead.'}
+}
+async function loadCandles(){
+  try{const r=await fetch('https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=60');const d=await r.json();candles=d.reverse().map(c=>({t:c[0],o:c[3],c:c[4]}))}catch(e){}
+}
+const avgRange=(a,b)=>{const s=samples.filter(x=>x.t>=a&&x.t<=b);return s.length>=20?s.reduce((x,y)=>x+y.p,0)/s.length:null};
+
+function modelCalc(price,target,rem){
+  const closes=candles.map(c=>c.c).concat([price]);
+  const rets=[];for(let i=1;i<closes.length;i++)rets.push(closes[i]-closes[i-1]);
+  const rc=rets.slice(-60),mean=rc.reduce((a,b)=>a+b,0)/(rc.length||1);
+  const sd=Math.sqrt(rc.reduce((a,b)=>a+(b-mean)**2,0)/(rc.length||1))||price*0.0002;
+  const z=(price-target)/((sd/Math.sqrt(60))*Math.sqrt(rem));
+  const c60=closes.slice(-60),trend=c60.length>21?(ema(c60,9)-ema(c60,21))/price*10000:0;
+  let p=cdf(z)+Math.max(-.05,Math.min(.05,trend/200));p=Math.min(.99,Math.max(.01,p));
+  return{p,sd,trend,rsi:rsi(closes)};
+}
+
+let last=0;
+function tick(){
+  const ag=agg();if(!ag)return;
+  const price=ag.p,now=Date.now()/1000,sec=Math.floor(now),ws=Math.floor(now/900)*900,end=ws+900,rem=Math.max(1,end-now);
+  if(!samples.length||samples[samples.length-1].t!==sec)samples.push({t:sec,p:price});
+  while(samples.length&&samples[0].t<sec-300)samples.shift();
+
+  // target: manual > Kalshi strike > own 60s average before open > approx
+  if(!targets[ws]||targets[ws].src==='approx'){
+    const a=avgRange(ws-60,ws);
+    const cand=candles.find(c=>c.t===ws);
+    targets[ws]=a?{v:a,src:'60s avg at open'}:(cand?{v:cand.o,src:'approx'}:targets[ws]);
+  }
+  let tv=targets[ws],manual=parseFloat($('manual').value);
+  if(kal&&kal.strike&&Math.abs(kal.close-end)<5)tv={v:kal.strike,src:'Kalshi strike'};
+  if(manual>0)tv={v:manual,src:'manual'};
+  if(!tv){$('price').textContent=fmt(price);return}
+  const target=tv.v,mc=modelCalc(price,target,rem),p=mc.p;
+  const side=p>=.5?'UP':'DOWN',conf=Math.max(p,1-p),flip=1-Math.abs(2*p-1);
+
+  // Kalshi prices for this window
+  const kOK=kal&&Math.abs(kal.close-end)<5;
+  const ask=kOK?(side==='UP'?kal.yesAsk:kal.noAsk):null;
+  const modelPrice=Math.min(.99,conf+.02);
+  const entry=ask!=null?ask:modelPrice;
+  const edge=(conf-entry)*100;
+
+  // paper trade entry
+  const have=trades.some(t=>t.ws===ws);
+  if(!have&&tv.src!=='approx'&&rem<=rule('r_from')&&rem>=rule('r_to')&&conf*100>=rule('r_conf')&&entry*100<=rule('r_max')&&(ask==null||edge>=rule('r_edge'))){
+    trades.push({ws,end,side,entry,stake:rule('r_stake')||10,target,res:null,pnl:0,real:ask!=null});save();
+  }
+  // settlement
+  for(const t of trades){if(!t.res&&now>=t.end+3){
+    const f=avgRange(t.end-60,t.end);
+    if(f==null){t.res='void';}else{const w=(f>=t.target)?'UP':'DOWN';t.res=w===t.side?'win':'loss';t.pnl=t.res==='win'?t.stake/t.entry*(1-t.entry):-t.stake;}
+    save();}}
+
+  // render
+  $('price').textContent=fmt(price);
+  const gap=price-target;$('gap').innerHTML=`<span class="${gap>=0?'up':'dn'}">${fmt(Math.abs(gap))} ${gap>=0?'above':'below'} target</span>`;
+  $('srcs').textContent=Object.keys(src).filter(k=>Date.now()-src[k].t<15000).join(' + ');
+  $('cd').textContent=Math.floor(rem/60)+':'+String(Math.floor(rem%60)).padStart(2,'0');
+  $('tgt').textContent='Target '+fmt(target)+' ('+tv.src+')';
+  $('dir').textContent=side;$('dir').className='huge '+(side==='UP'?'up':'dn');
+  $('conf').textContent=(conf*100).toFixed(0)+'%';$('confBar').style.width=conf*100+'%';$('confBar').style.background=side==='UP'?'var(--up)':'var(--dn)';
+  $('flip').textContent=(flip*100).toFixed(0)+'%';$('flipBar').style.width=flip*100+'%';
+  $('pup').textContent=(p*100).toFixed(0)+'%';$('rsi').textContent=mc.rsi?mc.rsi.toFixed(1):'--';
+  $('vol').textContent=fmt(mc.sd);$('trend').textContent=mc.trend.toFixed(2);$('trend').className='big '+(mc.trend>=0?'up':'dn');
+  $('yesA').textContent=kOK&&kal.yesAsk!=null?Math.round(kal.yesAsk*100)+'¢':'--';
+  $('noA').textContent=kOK&&kal.noAsk!=null?Math.round(kal.noAsk*100)+'¢':'--';
+  $('edge').textContent=ask!=null?(edge>=0?'+':'')+edge.toFixed(1)+' pts':'n/a';$('edge').className=edge>=0?'up':'dn';
+  const ot=trades.find(t=>t.ws===ws&&!t.res);
+  $('open').textContent=ot?`Open: ${ot.side} at ${Math.round(ot.entry*100)}¢, $${ot.stake} stake`+(ot.real?'':' (model price)'):'No open trade this window';
+  if(sec!==last){last=sec;stats()}
+}
+function stats(){
+  const s=trades.filter(t=>t.res==='win'||t.res==='loss'),w=s.filter(t=>t.res==='win').length,pnl=s.reduce((a,t)=>a+t.pnl,0);
+  $('wr').textContent=s.length?(w/s.length*100).toFixed(0)+'%':'--';$('wl').textContent=`${w} wins, ${s.length-w} losses`;
+  $('pnl').textContent=(pnl<0?'-':'')+fmt(Math.abs(pnl));$('pnl').className='big '+(pnl>=0?'up':'dn');
+  $('be').textContent=s.length?'Breakeven win rate '+(s.reduce((a,t)=>a+t.entry,0)/s.length*100).toFixed(0)+'%':'No settled trades yet';
+  $('log').innerHTML=trades.slice(-10).reverse().map(t=>`<tr><td>${new Date(t.end*1000).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})}</td><td class="${t.side==='UP'?'up':'dn'}">${t.side}</td><td>${Math.round(t.entry*100)}¢</td><td>${t.res||'open'}</td><td class="${t.pnl>=0?'up':'dn'}">${t.res?(t.pnl<0?'-':'')+fmt(Math.abs(t.pnl)):''}</td></tr>`).join('');
+}
+loadCandles();loadKalshi();setInterval(loadCandles,30000);setInterval(loadKalshi,4000);setInterval(tick,1000);
+</script>
+</body>
+</html>
